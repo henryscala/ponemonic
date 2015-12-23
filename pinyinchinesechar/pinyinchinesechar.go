@@ -20,6 +20,8 @@ type tChineseChar struct {
 
 var gChineseChars []tChineseChar
 var gPinyinArgs *pinyin.Args
+var gDigitCharDigit map[string]int
+
 var gVowel []string = []string{"a", "e", "i", "o", "u"}
 var gConsonant []string = []string{"b", "p", "m", "f",
 	"d", "t", "n", "l",
@@ -27,24 +29,159 @@ var gConsonant []string = []string{"b", "p", "m", "f",
 	"q", "x", "zh", "ch",
 	"sh", "r", "z", "c", "s",
 	"y", "w"}
+var gConsonantNum map[string]int = map[string]int{
+	"b": 8, "p": 4, "m": 5, "f": 8,
+	"d": 9, "t": 2, "n": 2, "l": 6,
+	"g": 7, "k": 3, "h": 3, "j": 9,
+	"q": 7, "x": 0, "zh": 0, "ch": 6,
+	"sh": 4, "r": 1, "z": 0, "c": 6, "s": 4,
+	"y": 1, "w": 5,
+}
+var gNumConsonant [][]string
 
 const (
 	chinese_char_file_name = "chinese_character_frequency_6763.csv"
 )
 
+const (
+	inputTypeInt int = iota
+	inputTypePinyin
+	inputTypeChinese
+
+	numDigit = 10
+)
+
+func pinyinToDigit(py string) int {
+
+	for _, c := range gConsonant {
+		if strings.HasPrefix(py, c) {
+			return gConsonantNum[c]
+		}
+
+	}
+
+	return 0
+}
+
+func NumStringToChineseStr(numStr string) string {
+	var b bytes.Buffer
+	for _, c := range numStr {
+		digitChar := string(c)
+		digit, ok := gDigitCharDigit[digitChar]
+
+		if ok {
+			b.WriteString(fmt.Sprintf("[%d[", digit))
+			pinyinList := DigitToConsonant(digit)
+
+			for _, py := range pinyinList {
+
+				chStr := PinyinToChineseStr(py)
+				fmt.Sprintf("%s -> %s", py, chStr)
+			}
+			b.WriteString(fmt.Sprintf("]]\n\n"))
+		} else {
+			b.WriteString(fmt.Sprintf("[[%s]]\n\n", digitChar))
+		}
+
+	}
+	return b.String()
+}
+
+func ChineseStrToDigitStr(str string) string {
+	var b bytes.Buffer
+	for _, c := range str {
+		digits := ChineseCharToDigit(string(c))
+		if len(digits) == 0 {
+			b.WriteString("[]")
+		} else if len(digits) == 1 {
+			b.WriteString(fmt.Sprintf("%d", digits[0]))
+		} else {
+			b.WriteString("[")
+			for _, d := range digits {
+				b.WriteString(fmt.Sprintf("%d", d))
+			}
+			b.WriteString("]")
+		}
+	}
+	return b.String()
+}
+
+//a single chinese char to digits, might be multiple pronouncation,
+//so might be multiple results
+func ChineseCharToDigit(char string) []int {
+	result := []int{}
+	pinyinList, err := ChinseCharToPinyin(char)
+	if err != nil {
+		return result
+	}
+
+	for _, py := range pinyinList {
+		result = append(result, pinyinToDigit(py))
+	}
+	return result
+}
+
+func DigitToConsonantTable() string {
+	var b bytes.Buffer
+
+	for i := 0; i < numDigit; i++ {
+		list := DigitToConsonant(i)
+		b.WriteString(fmt.Sprintf("%d = %v\n", i, list))
+	}
+	return b.String()
+}
+
+func DigitToConsonant(digit int) []string {
+	digit = digit % numDigit
+	if gNumConsonant == nil {
+		gNumConsonant = make([][]string, numDigit)
+		for k, v := range gConsonantNum {
+			if gNumConsonant[v] == nil {
+				gNumConsonant[v] = make([]string, 0)
+			}
+			gNumConsonant[v] = append(gNumConsonant[v], k)
+		}
+	}
+	return gNumConsonant[digit]
+}
+
+//A list in string format (separated by comma, space char) to string list
+func listInStrToList(listStr string) (result []string) {
+	var list []string
+	list = strings.Split(listStr, " ") //split by space char
+	var listOfList [][]string = make([][]string, len(list))
+	for i, str := range list {
+		listOfList[i] = strings.Split(str, ",") //split by comma
+	}
+	for _, list := range listOfList {
+		result = append(result, list...)
+	}
+	return result
+}
+
+//A list of pinyyin(separated by comma, space char) to string list
+func PinyinListToChineseStrList(pyList string) (result []string) {
+	result = listInStrToList(pyList)
+
+	for i := range result {
+		result[i] = PinyinToChineseStr(result[i])
+	}
+	return result
+}
+
 func PinyinToChineseStr(py string) string {
 	var b bytes.Buffer
-	list:=PinyinToChinseChar(py)
-	for _,char := range list {
+	list := PinyinToChinseChar(py)
+	for _, char := range list {
 		b.WriteString(char)
 	}
-	return b.String() 
+	return b.String()
 }
 
 //the py is supposed to be only for a single char, like zhong, not zhong guo.
 //py may also be partial prefix like zh
 func PinyinToChinseChar(py string) []string {
-	resultWholeMatch :=[]string{}
+	resultWholeMatch := []string{}
 	resultPrefixMatch := []string{}
 
 	for _, c := range gChineseChars {
@@ -52,18 +189,18 @@ func PinyinToChinseChar(py string) []string {
 			py = strings.ToLower(py)
 
 			if py == pyInList {
-				resultWholeMatch = append(resultWholeMatch,c.theChar)
+				resultWholeMatch = append(resultWholeMatch, c.theChar)
 				continue
-			}			
-			
+			}
+
 			if strings.HasPrefix(pyInList, py) {
 				resultPrefixMatch = append(resultPrefixMatch, c.theChar)
 				continue
 			}
 		}
 	}
-	
-	return append(resultWholeMatch,resultPrefixMatch...)
+
+	return append(resultWholeMatch, resultPrefixMatch...)
 }
 
 func removeDuplicates(list []string) []string {
@@ -136,12 +273,15 @@ func readChineseCharCsvFile(filePath string) ([]tChineseChar, error) {
 	return readChineseCharCsvBytes(content)
 }
 
-func init(){
-	var err error 
+func init() {
+	var err error
 	gChineseChars, err = readChineseCharCsvBytes([]byte(gChineseCharsCsv))
-	if err!=nil {
+	if err != nil {
 		panic(err)
 	}
+
+	gDigitCharDigit = make(map[string]int)
+	for i := 0; i < numDigit; i++ {
+		gDigitCharDigit[fmt.Sprintf("%d", i)] = i
+	}
 }
-
-
