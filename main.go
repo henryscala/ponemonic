@@ -2,15 +2,18 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	
+	
+	"github.com/gopherjs/gopherjs/js"
 	"ponemonic/pinyinchinesechar"
 )
 
 func main() {
 	
 
-	fmt.Printf("%s %v\n", os.Args[1], pinyinchinesechar.PinyinToChinseChar(os.Args[1]))
+	js.Global.Set("pinyinchinesechar", map[string]interface{}{
+		"PinyinToChineseStr": pinyinchinesechar.PinyinToChineseStr,
+
+	})
 
 }

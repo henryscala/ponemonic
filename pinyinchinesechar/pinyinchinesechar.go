@@ -32,6 +32,15 @@ const (
 	chinese_char_file_name = "chinese_character_frequency_6763.csv"
 )
 
+func PinyinToChineseStr(py string) string {
+	var b bytes.Buffer
+	list:=PinyinToChinseChar(py)
+	for _,char := range list {
+		b.WriteString(char)
+	}
+	return b.String() 
+}
+
 //the py is supposed to be only for a single char, like zhong, not zhong guo.
 //py may also be partial prefix like zh
 func PinyinToChinseChar(py string) []string {
