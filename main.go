@@ -9,11 +9,11 @@ import (
 func main() {
 
 	js.Global.Set("pinyinchinesechar", map[string]interface{}{
-		"PinyinToChineseStr":         pinyinchinesechar.PinyinToChineseStr,
-		"PinyinListToChineseStrList": pinyinchinesechar.PinyinListToChineseStrList,
-		"NumStringToChineseStr":pinyinchinesechar.NumStringToChineseStr,
-		"ChineseStrToDigitStr":pinyinchinesechar.ChineseStrToDigitStr,
-		"DigitToConsonantTable":pinyinchinesechar.DigitToConsonantTable,
+		"InputToOutput":         pinyinchinesechar.InputToOutput,
+		"PinyinStrToChineseStr": pinyinchinesechar.PinyinStrToChineseStr,
+		"NumStrToChineseStr":    pinyinchinesechar.NumStrToChineseStr,
+		"ChineseStrToDigitStr":  pinyinchinesechar.ChineseStrToDigitStr,
+		"DigitToConsonantTable": pinyinchinesechar.DigitToConsonantTable,
 	})
 
 }

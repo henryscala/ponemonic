@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -39,8 +40,14 @@ var gConsonantNum map[string]int = map[string]int{
 }
 var gNumConsonant [][]string
 
+//judge whether a string contains number
+var gRegexpNumber *regexp.Regexp = regexp.MustCompile(`\d`)
+
+//judge whether a string contains english char
+var gRegexpEnglish *regexp.Regexp = regexp.MustCompile(`[a-zA-Z]`)
+
 const (
-	chinese_char_file_name = "chinese_character_frequency_6763.csv"
+	chineseCharFileName = "chinese_character_frequency_6763.csv"
 )
 
 const (
@@ -51,6 +58,32 @@ const (
 	numDigit = 10
 )
 
+func InputToOutput(input string) (output string) {
+	i := strings.Trim(input, " \t\r\n")
+	category := judgeInputType(i)
+	switch category {
+	case inputTypeInt:
+		output = NumStrToChineseStr(i)
+	case inputTypePinyin:
+		output = PinyinStrToChineseStr(i)
+	case inputTypeChinese:
+		output = ChineseStrToDigitStr(i)
+	}
+	return
+}
+
+func judgeInputType(input string) int {
+	if gRegexpNumber.MatchString(input) {
+		return inputTypeInt
+	}
+	if gRegexpEnglish.MatchString(input) {
+		return inputTypePinyin
+	}
+	return inputTypeChinese
+}
+
+// Convert the pinyin of a char to the corresponding digit
+// e.g. : b -> 8, ban -> 8
 func pinyinToDigit(py string) int {
 
 	for _, c := range gConsonant {
@@ -63,7 +96,9 @@ func pinyinToDigit(py string) int {
 	return 0
 }
 
-func NumStringToChineseStr(numStr string) string {
+// Convert a number(might be several digits) to possible Chinese chars
+// The output format is fixed
+func NumStrToChineseStr(numStr string) string {
 	var b bytes.Buffer
 	for _, c := range numStr {
 		digitChar := string(c)
@@ -73,10 +108,13 @@ func NumStringToChineseStr(numStr string) string {
 			b.WriteString(fmt.Sprintf("[%d[", digit))
 			pinyinList := DigitToConsonant(digit)
 
-			for _, py := range pinyinList {
+			for i, py := range pinyinList {
 
-				chStr := PinyinToChineseStr(py)
-				fmt.Sprintf("%s -> %s", py, chStr)
+				chStr := pinyinToChineseStr(py)
+				if i == 0 {
+					b.WriteString("\n")
+				}
+				b.WriteString(fmt.Sprintf("  %s -> %s\n", py, chStr))
 			}
 			b.WriteString(fmt.Sprintf("]]\n\n"))
 		} else {
@@ -87,6 +125,9 @@ func NumStringToChineseStr(numStr string) string {
 	return b.String()
 }
 
+// Convert a Chinese str(may contain multiple chars)
+// to a number(multiple digits)
+// A char may contributate multiple digits
 func ChineseStrToDigitStr(str string) string {
 	var b bytes.Buffer
 	for _, c := range str {
@@ -121,6 +162,7 @@ func ChineseCharToDigit(char string) []int {
 	return result
 }
 
+// Get a string with the mappings from digit to pinyin char
 func DigitToConsonantTable() string {
 	var b bytes.Buffer
 
@@ -159,17 +201,34 @@ func listInStrToList(listStr string) (result []string) {
 	return result
 }
 
-//A list of pinyyin(separated by comma, space char) to string list
-func PinyinListToChineseStrList(pyList string) (result []string) {
+//A list of pinyin(separated by comma, space char) to string that separated
+//by predefined delimiters
+func PinyinStrToChineseStr(pyList string) string {
+	list := pinyinStrToChineseStrList(pyList)
+	var b bytes.Buffer
+	const lineSep string = "\n--------\n"
+	for i, s := range list {
+		if i != 0 {
+			b.WriteString(lineSep)
+		}
+		b.WriteString(s)
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+//A list of pinyin(separated by comma, space char) to string list
+func pinyinStrToChineseStrList(pyList string) (result []string) {
 	result = listInStrToList(pyList)
 
 	for i := range result {
-		result[i] = PinyinToChineseStr(result[i])
+		result[i] = pinyinToChineseStr(result[i])
 	}
 	return result
 }
 
-func PinyinToChineseStr(py string) string {
+//from a single pinyin to get a string with multiple chinese chars
+func pinyinToChineseStr(py string) string {
 	var b bytes.Buffer
 	list := PinyinToChinseChar(py)
 	for _, char := range list {
